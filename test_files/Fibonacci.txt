@@ -1,0 +1,12 @@
+func Fibonacci(n) (
+	(var first 0)
+	(var second 1)
+
+	(for (var i from 2 to n) (
+		(var result (+ first second))
+		(= first second )
+		(= second result)
+	))
+
+	(return first)
+)

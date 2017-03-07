@@ -1,0 +1,29 @@
+var global ((Factorial (5)))
+func Pointless()(
+	(var string "random text")
+	(var laaargeNumber 123456789)
+	(var c (/ (- laaargeNumber 1) 2))
+	(while (>= c 0) (
+		(if (== (% c 3) 0) (
+			(= c 0)
+		))
+		(= c (- c 1))
+	))
+	(if ((>= c 0)) (
+	)
+	else (
+	))
+)
+
+var answer (42)
+var x "Hello world!"
+var y answer
+var z (+ (-2) (Foo (5 (- 8 9))) (6))
+var w Bar()
+var a (* 2 (-3) (+ 6 7) 4 5)
+
+func Foo(n x)(
+)
+
+func Bar()(
+)

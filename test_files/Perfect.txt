@@ -1,0 +1,16 @@
+func IsPerfect(n) (
+	(var sum 0)
+
+	(for (var i from (- n 1) downto 1) (
+		(if (== (% n i) 0) (
+			(= sum (+ sum i))
+		))
+	))
+
+	(if (== sum n) (
+		(return 1)
+	)
+	else (
+		(return 0)
+	))
+)

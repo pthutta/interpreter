@@ -1,0 +1,8 @@
+func Prime(n) (
+	(for (var i from 2 to (- n 1)) (
+		(if (== (% n i) 0) (
+			(return 1)
+		))
+	))
+	(return 0)
+)
