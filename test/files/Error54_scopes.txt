@@ -1,0 +1,9 @@
+func Foo(n) (
+    (var x)
+    (if (1) (
+        (var x 1)
+        (= x 0)
+    ))
+
+)
+var y x

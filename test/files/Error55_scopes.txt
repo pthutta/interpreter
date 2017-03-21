@@ -1,0 +1,9 @@
+func Foo(n) (
+    (var x)
+    (if (1) (
+        (var x 1)
+        (= x Bar())
+    ))
+    (= x 5)
+)
+func Bar() ()

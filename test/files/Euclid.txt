@@ -1,5 +1,5 @@
 func Euclid(a b) (
-	(var temp 0)
+	(var temp)
 
 	(while (!= b 0) (
 		(= temp (% a b))

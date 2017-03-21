@@ -1,7 +1,6 @@
 #include <iostream>
 #include <string>
-#include "lexer.h"
-#include "parser.h"
+#include "analyzer.h"
 
 using namespace std;
 
@@ -12,14 +11,18 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	Parser p(argv[1]);
+	Analyzer a(argv[1]);
 	try {
-		auto program = p.toplevel();
+		auto program = a.toplevel();
 		std::cerr << program << std::endl;
 	}
 	catch (BadParse bp)
 	{
 		std::cerr << bp << std::endl;
+	}
+	catch (BadSymbol bs)
+	{
+		std::cerr << bs << std::endl;
 	}
 
 	return 0;

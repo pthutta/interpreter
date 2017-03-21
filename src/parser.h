@@ -70,7 +70,7 @@ struct Parser
 		shift();
 		Func f;
 		f.name = identifier();
-		if (!isupper(f.name.name[0])) {
+		if (!isupper(f.name.token.text[0])) {
 			fail("first letter to be uppercase");
 		}
 
@@ -99,11 +99,14 @@ struct Parser
 		shift();
 		Var v;
 		v.name = identifier();
-		if (!islower(v.name.name[0])) {
+		if (!islower(v.name.token.text[0])) {
 			fail("first letter to be lowercase");
 		}
-		shift();
-		v.value = expressionOperCheck();
+
+		if (lexer.peek().category != Token::ParentClose) {
+			shift();
+			v.value = expressionOperCheck();
+		}
 
 		return v;
 	}
@@ -114,7 +117,7 @@ struct Parser
 			fail("identifier");
 		}
 		Identifier id;
-		id.name = token.text;
+		id.token = token;
 		return id;
 	}
 
@@ -219,7 +222,7 @@ struct Parser
 
 		Block b;
 		while (token.category != Token::ParentClose) {
-			b.statements.push_back(statement());
+			b.statements.push_back(std::make_shared<Statement>(statement()));
 			shift();
 		}
 
@@ -347,7 +350,7 @@ struct Parser
 		
 		For f;
 		f.variable = identifier();
-		if (!islower(f.variable.name[0])) {
+		if (!islower(f.variable.token.text[0])) {
 			fail("first letter to be lowercase");
 		}
 

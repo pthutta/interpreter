@@ -1,3 +1,4 @@
+func Factorial(n) ()
 var global ((Factorial (5)))
 func Pointless()(
 	(var string "random text")
@@ -15,15 +16,15 @@ func Pointless()(
 	))
 )
 
+func Foo(n x)(
+)
+
+func Bar()(
+)
+
 var answer (42)
 var x "Hello world!"
 var y answer
 var z (+ (-2) (Foo (5 (- 8 9))) (6))
 var w Bar()
 var a (* 2 (-3) (+ 6 7) 4 5)
-
-func Foo(n x)(
-)
-
-func Bar()(
-)

@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include <brick-types>
+#include "lexer.h"
 
 using brick::types::Union;
 
@@ -12,7 +13,9 @@ struct Expression;
 
 struct Identifier
 {
-	std::string name;
+	Token token;
+
+	Identifier() : token(Token::Eof, "", 0) {}
 };
 
 using Literal = Union<std::string, int>;
@@ -41,6 +44,7 @@ struct Expression : ExprBase
 };
 
 struct Block;
+struct Scope;
 
 struct ConditionBase
 {
@@ -77,7 +81,8 @@ struct Var
 using Statement = Union<Var, If, While, For, Return, Call, Operator>;
 struct Block
 {
-	std::vector<Statement> statements;
+	std::vector<Ptr<Statement>> statements;
+	Ptr<Scope> scope;
 };
 
 struct Func 
@@ -92,6 +97,7 @@ using Global = Union<Func, Var>;
 struct Toplevel
 {
 	std::vector<Global> globals;
+	Ptr<Scope> scope;
 };
 
 inline std::ostream &operator<<(std::ostream &out, Expression ex);
@@ -103,7 +109,7 @@ inline std::ostream &operator<<(std::ostream &out, Literal l) {
 }
 
 inline std::ostream &operator<<(std::ostream &out, Identifier i) {
-	out << i.name;
+	out << i.token.text;
 	return out;
 }
 
@@ -148,8 +154,11 @@ inline std::ostream &operator<<(std::ostream &out, Expression ex) {
 }
 
 inline std::ostream &operator<<(std::ostream &out, Var v) {
-	out << "var " << v.name << " ";
-	operatorCheck(out, *v.value);
+	out << "var " << v.name;
+	if (v.value != nullptr) {
+		out << " ";
+		operatorCheck(out, *v.value);
+	}
 	return out;
 }
 
@@ -191,7 +200,7 @@ inline std::ostream &operator<<(std::ostream &out, Block b) {
 	out << "(" << std::endl;
 	for (auto s : b.statements) {
 		out << "(";
-		s.match([&](Var v) { out << v; }, 
+		s->match([&](Var v) { out << v; },
 				[&](If i) { out << i; },
 				[&](While w) { out << w; },
 				[&](For f) { out << f; }, 

@@ -4,7 +4,7 @@ func Fibonacci(n) (
 
 	(for (var i from 2 to n) (
 		(var result (+ first second))
-		(= first second )
+		(= first second)
 		(= second result)
 	))
 

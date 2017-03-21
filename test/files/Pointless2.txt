@@ -1,0 +1,21 @@
+var x 42
+func Bar() (
+    (var y 0)
+    (for (var i from x downto 0) (
+        (= y (+ y i))
+    ))
+    (return y)
+)
+func Foo(n) (
+    (var x)
+    (if (1) (
+        (var x n)
+        (= x Bar())
+
+        (if (< x 0) (
+            (return (x))
+        ))
+    ))
+    (= x 5)
+    (return x)
+)

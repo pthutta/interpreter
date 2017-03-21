@@ -49,7 +49,7 @@ struct Lexer
 	std::map< std::string, Token::Category > operators;
 	std::map< std::string, Token::Category > keywords;
 
-	Lexer(const char *f) : in(f)
+	Lexer(const char *f) : in(f, std::ios::binary)
 	{
 		std::map< std::string, Token::Category > op { 
 			{ "+", Token::Plus }, { "-", Token::Minus }, { "*", Token::Times }, { "/", Token::Slash }, { "%", Token::Modulo }, { "=", Token::Assign },
@@ -101,6 +101,7 @@ struct Lexer
 		auto pos = in.tellg();
 		auto oldLine = line;
 		Token tok = next();
+		in.clear();
 		in.seekg(pos);
 		line = oldLine;
 		return tok;
@@ -117,7 +118,6 @@ struct Lexer
 	}
 
 protected:
-
 	void whitespace()
 	{
 		while (std::isspace(c = in.get())) {
@@ -151,6 +151,9 @@ protected:
 	{
 		buffer.clear();
 		while ((c = in.get()) != '"') {
+			if (c == EOF) {
+				return shift(Token::Error);
+			}
 			buffer += c;
 		}
 
