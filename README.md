@@ -10,3 +10,7 @@ cd _build/
 cmake ..
 make
 ```
+Automated tests are part of a build. You can find test binary in *test/* folder. Path to interpreter binary is *src/Interpreter*. You should specify name of the input file in the first command line argument as follows:
+```shell
+./Interpreter <path/to/input/file>
+```
