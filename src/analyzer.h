@@ -1,5 +1,4 @@
 #pragma once
-
 #include <memory>
 #include "parser.h"
 #include "scope.h"
@@ -21,10 +20,11 @@ static inline std::ostream &operator<<(std::ostream &out, BadSymbol bs)
 
 struct Analyzer
 {
-	StringTable stringTable;
 	Parser parser;
+	std::size_t varCounter;
+	std::size_t globalVars;
 
-	Analyzer(const char *file) : parser(file) {}
+	Analyzer(const char *file) : parser(file), varCounter(0), globalVars(0) {}
 
 	void fail(Token token, bool exists)
 	{
@@ -34,64 +34,68 @@ struct Analyzer
 	Toplevel toplevel()
 	{
 		auto toplevel = parser.toplevel();
-		stringTable.build(toplevel);
 
 		auto currentScope = std::make_shared<Scope>(Scope());
 		toplevel.scope = currentScope;
 
-		for (auto global : toplevel.globals) {
-			global.match([&](Var &v) { var(v, currentScope); },
-						 [&](Func &f) { func(f, currentScope); });
+		for (auto & global : toplevel.globals) {
+			global.match([&](Var &v) { var(v, currentScope, true); },
+						 [&](Func &f) { func(f, currentScope); },
+						 [&](Call &c) { call(c, currentScope, false); });
 		}
-
+		toplevel.frameSize = globalVars;
 		return toplevel;
 	}
 
 private:
-	void define(Identifier &name, Ptr<Scope> currentScope)
+	void define(Identifier &name, Ptr<Scope> currentScope, bool global)
 	{
-		auto n = stringTable.get(name);
-		if (!currentScope->add(n, name)) {
+		auto n = parser.stringTable.get(name);
+		if (!currentScope->add(n, name, (global) ? globalVars : varCounter, global)) {
 			fail(name.token, true);
 		}
 	}
 
 	void func(Func &f, Ptr<Scope> currentScope)
 	{
-		define(f.name, currentScope);
+		define(f.name, currentScope, true);
+		varCounter = 0;
 
 		auto funcScope = std::make_shared<Scope>(Scope());
 		funcScope->parent = currentScope;
 		f.body->scope = funcScope;
 
-		for (auto param : f.parameters) {
-			define(param, funcScope);
+		for (auto & param : f.parameters) {
+			define(param, funcScope, false);
+			++varCounter;
 		}
 
-		block(*f.body, funcScope);
+		block(*f.body, funcScope, true);
+		f.frameSize = varCounter+1;
 	}
 
-	void block(Block &b, Ptr<Scope> currentScope)
+	void block(Block &b, Ptr<Scope> currentScope, bool function)
 	{
 		for (auto statement : b.statements) {
-			statement->match([&](Var &v) { var(v, currentScope); },
+			bool tailContext = function && statement == b.statements.back();
+			statement->match([&](Var &v) { var(v, currentScope, false); },
 				[&](If &i) { ifStatement(i, currentScope); },
 				[&](While &w) { whileStatement(w, currentScope); },
 				[&](For &f) { forStatement(f, currentScope); },
 				[&](Return &r) { returnStatement(r, currentScope); },
-				[&](Call &c) { call(c, currentScope); },
-				[&](Operator &o) { oper(o, currentScope); });
+				[&](Call &c) { call(c, currentScope, tailContext); },
+				[&](Operator &o) { oper(o, currentScope, tailContext); });
 		}
 	}
 
 	void condition(ConditionBase &cb, Ptr<Scope> currentScope)
 	{
-		expression(*cb.condition, currentScope);
+		expression(*cb.condition, currentScope, false);
 
 		auto condScope = std::make_shared<Scope>(Scope());
 		condScope->parent = currentScope;
 		cb.body->scope = condScope;
-		block(*cb.body, condScope);
+		block(*cb.body, condScope, false);
 	}
 
 	void ifStatement(If &i, Ptr<Scope> currentScope)
@@ -102,7 +106,7 @@ private:
 			auto elseScope = std::make_shared<Scope>(Scope());
 			elseScope->parent = currentScope;
 			i.elseBody->scope = elseScope;
-			block(*i.elseBody, elseScope);
+			block(*i.elseBody, elseScope, false);
 		}
 	}
 
@@ -117,57 +121,65 @@ private:
 		forScope->parent = currentScope;
 		f.body->scope = forScope;
 
-		expression(*f.from, currentScope);
-		expression(*f.to, currentScope);
-		define(f.variable, forScope);
+		expression(*f.from, currentScope, false);
+		expression(*f.to, currentScope, false);
+		define(f.variable, forScope, false);
+		++varCounter;
 
-		block(*f.body, forScope);
+		block(*f.body, forScope, false);
 	}
 
 	void returnStatement(Return &r, Ptr<Scope> currentScope)
 	{
-		expression(*r.returnValue, currentScope);
+		expression(*r.returnValue, currentScope, true);
 	}
 
-	void var(Var &v, Ptr<Scope> currentScope)
+	void var(Var &v, Ptr<Scope> currentScope, bool global)
 	{
-		define(v.name, currentScope);
+		define(v.name, currentScope, global);
 		if (v.value != nullptr) {
-			expression(*v.value, currentScope);
+			expression(*v.value, currentScope, false);
+		}
+		if (global) {
+			globalVars++;
+		}
+		else {
+			varCounter++;
 		}
 	}
 
-	void expression(Expression &exp, Ptr<Scope> currentScope)
+	void expression(Expression &exp, Ptr<Scope> currentScope, bool tailContext)
 	{
-		exp.match([&](Operator &o) { oper(o, currentScope); },
-				  [&](Call &c) { call(c, currentScope); },
+		exp.match([&](Operator &o) { oper(o, currentScope, tailContext); },
+				  [&](Call &c) { call(c, currentScope, tailContext); },
 				  [&](Atom &a) { atom(a, currentScope); });
 	}
 
-	void oper(Operator &op, Ptr<Scope> currentScope)
+	void oper(Operator &op, Ptr<Scope> currentScope, bool tailContext)
 	{
 		for (auto operand : op.operands) {
-			expression(*operand, currentScope);
+			expression(*operand, currentScope, tailContext && operand == op.operands.back());
 		}
 	}
 
 	void identifier(Identifier &name, Ptr<Scope> currentScope)
 	{
-		if (!stringTable.exists(name)) {
+		if (!parser.stringTable.exists(name)) {
 			fail(name.token, false);
 		}
-		auto id = stringTable.get(name);
+		auto id = parser.stringTable.get(name);
 		if (!currentScope->exists(id)) {
 			fail(name.token, false);
 		}
 	}
 
-	void call(Call &call, Ptr<Scope> currentScope)
+	void call(Call &call, Ptr<Scope> currentScope, bool tailContext)
 	{
 		identifier(call.function, currentScope);
+		call.isTail = tailContext;
 
 		for (auto operand : call.operands) {
-			expression(*operand, currentScope);
+			expression(*operand, currentScope, tailContext && operand == call.operands.back());
 		}
 	}
 

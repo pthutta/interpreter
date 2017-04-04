@@ -30,6 +30,7 @@ struct OperBase
 struct Call : OperBase
 {
 	Identifier function;
+	bool isTail;
 };
 
 struct Operator : OperBase
@@ -42,6 +43,12 @@ struct Expression : ExprBase
 {
 	explicit Expression(ExprBase b) : ExprBase(b) {}
 };
+
+template<typename T>
+Ptr<Expression> make_expr(T expr)
+{
+	return std::make_shared<Expression>(expr);
+}
 
 struct Block;
 struct Scope;
@@ -90,14 +97,16 @@ struct Func
 	Identifier name;
 	std::vector<Identifier> parameters;
 	Ptr<Block> body;
+	std::size_t frameSize;
 };
 
-using Global = Union<Func, Var>;
+using Global = Union<Func, Var, Call>;
 
 struct Toplevel
 {
 	std::vector<Global> globals;
 	Ptr<Scope> scope;
+	std::size_t frameSize;
 };
 
 inline std::ostream &operator<<(std::ostream &out, Expression ex);
@@ -137,7 +146,7 @@ inline std::ostream &operator<<(std::ostream &out, std::vector<Ptr<Expression>> 
 }
 
 inline std::ostream &operator<<(std::ostream &out, Call c) {
-	out << c.function << "(" << c.operands << ")";
+	out << /*((c.isTail) ? "tail-" : "") <<*/ c.function << "(" << c.operands << ")";
 	return out;
 }
 
@@ -163,7 +172,8 @@ inline std::ostream &operator<<(std::ostream &out, Var v) {
 }
 
 inline std::ostream &operator<<(std::ostream &out, Return r) {
-	out << "return " << *r.returnValue;
+	out << "return ";
+	operatorCheck(out, *r.returnValue);
 	return out;
 }
 
@@ -227,7 +237,8 @@ inline std::ostream &operator<<(std::ostream &out, Func f) {
 
 inline std::ostream &operator<<(std::ostream &out, Global g) {
 	g.match([&](Func f) { out << f; },
-			[&](Var v) { out << v; });
+			[&](Var v) { out << v; },
+			[&](Call c) { out << c; });
 	return out;
 }
 

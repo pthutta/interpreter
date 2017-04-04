@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include "analyzer.h"
+#include "evaluator.h"
 
 using namespace std;
 
@@ -11,10 +12,10 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	Analyzer a(argv[1]);
+	Evaluator e(argv[1]);
 	try {
-		auto program = a.toplevel();
-		std::cerr << program << std::endl;
+		e.evalAndPrint();
+		//std::cerr << program << std::endl;
 	}
 	catch (BadParse bp)
 	{
@@ -23,6 +24,10 @@ int main(int argc, char** argv)
 	catch (BadSymbol bs)
 	{
 		std::cerr << bs << std::endl;
+	}
+	catch (RuntimeError re)
+	{
+		std::cerr << re << std::endl;
 	}
 
 	return 0;

@@ -51,7 +51,7 @@ struct Lexer
 
 	Lexer(const char *f) : in(f, std::ios::binary)
 	{
-		std::map< std::string, Token::Category > op { 
+		std::map< std::string, Token::Category > op {
 			{ "+", Token::Plus }, { "-", Token::Minus }, { "*", Token::Times }, { "/", Token::Slash }, { "%", Token::Modulo }, { "=", Token::Assign },
 			{ "&&", Token::And }, { "||", Token::Or }, { "!", Token::Not },
 			{ "==", Token::Eq }, { "!=", Token::NotEq }, { "<", Token::Less }, { "<=", Token::LessEq }, { ">", Token::Greater },{ ">=", Token::GreaterEq }

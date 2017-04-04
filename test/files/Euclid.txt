@@ -9,3 +9,10 @@ func Euclid(a b) (
 
 	(return a)
 )
+
+Euclid(816 2260)
+Euclid(1071 462)
+Euclid(54 24)
+Euclid(180 48)
+Euclid(53 97)
+Euclid(1 11)

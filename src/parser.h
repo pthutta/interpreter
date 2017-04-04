@@ -2,6 +2,7 @@
 #include <string>
 #include "ast.h"
 #include "lexer.h"
+#include "scope.h"
 
 struct BadParse
 {
@@ -19,14 +20,9 @@ struct Parser
 {
 	Lexer lexer;
 	Token token;
+	StringTable stringTable;
 
 	Parser(const char *file) : lexer(file), token(Token::Eof, "", 0) {}
-
-	template<typename T>
-	Ptr<Expression> make_expr(T expr)
-	{
-		return std::make_shared<Expression>(expr);
-	}
 
 	void shift()
 	{
@@ -59,7 +55,10 @@ struct Parser
 		if (token.category == Token::Var) {
 			return var();
 		}
-		fail("func or var");
+		if (isFunctionCall()) {
+			return call();
+		}
+		fail("func, var or function call");
 	}
 
 	Func func()
@@ -103,7 +102,8 @@ struct Parser
 			fail("first letter to be lowercase");
 		}
 
-		if (lexer.peek().category != Token::ParentClose) {
+		auto next = lexer.peek().category;
+		if (next != Token::ParentClose && next != Token::Func) {
 			shift();
 			v.value = expressionOperCheck();
 		}
@@ -118,6 +118,7 @@ struct Parser
 		}
 		Identifier id;
 		id.token = token;
+		stringTable.add(id);
 		return id;
 	}
 

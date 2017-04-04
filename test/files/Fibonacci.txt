@@ -10,3 +10,35 @@ func Fibonacci(n) (
 
 	(return first)
 )
+
+Fibonacci(1)
+Fibonacci(2)
+Fibonacci(3)
+Fibonacci(4)
+Fibonacci(5)
+Fibonacci(6)
+Fibonacci(7)
+Fibonacci(8)
+Fibonacci(9)
+Fibonacci(10)
+
+func RecFibonacci(n) (
+    (if (== n 1) (
+        (return 0)
+    ))
+    (if (== n 2) (
+            (return 1)
+    ))
+    (return (+ RecFibonacci((- n 1)) RecFibonacci((- n 2))))
+)
+
+RecFibonacci(1)
+RecFibonacci(2)
+RecFibonacci(3)
+RecFibonacci(4)
+RecFibonacci(5)
+RecFibonacci(6)
+RecFibonacci(7)
+RecFibonacci(8)
+RecFibonacci(9)
+RecFibonacci(10)

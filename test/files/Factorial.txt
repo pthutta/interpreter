@@ -1,12 +1,35 @@
 func Factorial(n) (
-	(if ( ||(( == n 0)) (==((n))(1)))(
-		(return 1)
-	)
-	else (
-		(var result 1)
-		(for(var i from 2 to n) (
-			(= result (*(result) i) )
-		))
-		(return (result))
-	))
+    (if ( ||(( == n 0)) (==((n))(1)))(
+        (return 1)
+    )
+    else (
+        (var result 1)
+        (for(var i from 2 to n) (
+            (= result (*(result) i))
+        ))
+        (return (result))
+    ))
 )
+Factorial(0)
+Factorial(1)
+Factorial(2)
+Factorial(3)
+Factorial(4)
+Factorial(5)
+Factorial(6)
+
+func RecFactorial(n) (
+    (if (|| ( == n 0) (== n 1)) (
+        (return 1)
+    )
+    else (
+        (return (* n RecFactorial((- n 1)) ))
+    ))
+)
+RecFactorial(0)
+RecFactorial(1)
+RecFactorial(2)
+RecFactorial(3)
+RecFactorial(4)
+RecFactorial(5)
+RecFactorial(6)
