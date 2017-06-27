@@ -1,0 +1,14 @@
+func SumNumbers() (
+    (var first)
+    (var second)
+
+    (Write ("Enter first number: "))
+    (Read (first))
+
+    (Write ("Enter second number: "))
+    (Read (second))
+
+    (Write ("Sum of your numbers is: "))
+    (Write ((+ first second "\n")))
+)
+SumNumbers()

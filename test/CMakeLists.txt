@@ -10,8 +10,9 @@ foreach(SRC ${TEST_FILES})
 endforeach()
 
 set(UNIT_TEST Tests)
-add_executable(${UNIT_TEST} tests.cpp catch.hpp parser_tests.cpp analyzer_tests.cpp evaluator_tests.cpp)
+add_executable(${UNIT_TEST} tests.cpp catch.hpp parser_tests.cpp analyzer_tests.cpp evaluator_tests.cpp cwd.h)
 target_link_libraries (${UNIT_TEST} headers)
+target_link_libraries(${UNIT_TEST} ${CMAKE_DL_LIBS})
 
 add_test(NAME ${UNIT_TEST} COMMAND ${UNIT_TEST})
 add_custom_command(

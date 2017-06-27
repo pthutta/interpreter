@@ -1,0 +1,184 @@
+var pos11 " "
+var pos12 " "
+var pos13 " "
+
+var pos21 " "
+var pos22 " "
+var pos23 " "
+
+var pos31 " "
+var pos32 " "
+var pos33 " "
+
+func PrintBoard() (
+    (Write ( "---------\n" ))
+    (Write ( (+ "| " pos11 " " pos12 " " pos13 " |\n") ))
+    (Write ( (+ "| " pos21 " " pos22 " " pos23 " |\n") ))
+    (Write ( (+ "| " pos31 " " pos32 " " pos33 " |\n") ))
+    (Write ( "---------\n" ))
+)
+
+func GetStoneType(currentPlayer) (
+    (if (== currentPlayer 0) (
+        (return "o")
+    )
+    else (
+        (return "x")
+    ))
+)
+
+func PlaceStone(currentPlayer row col) (
+    (if (== row 1) (
+        (if (== col 1) (
+            (= pos11 GetStoneType(currentPlayer))
+        ))
+        (if (== col 2) (
+            (= pos12 GetStoneType(currentPlayer))
+        ))
+        (if (== col 3) (
+            (= pos13 GetStoneType(currentPlayer))
+        ))
+    ))
+    (if (== row 2) (
+        (if (== col 1) (
+            (= pos21 GetStoneType(currentPlayer))
+        ))
+        (if (== col 2) (
+            (= pos22 GetStoneType(currentPlayer))
+        ))
+        (if (== col 3) (
+            (= pos23 GetStoneType(currentPlayer))
+        ))
+    ))
+    (if (== row 3) (
+        (if (== col 1) (
+            (= pos31 GetStoneType(currentPlayer))
+        ))
+        (if (== col 2) (
+            (= pos32 GetStoneType(currentPlayer))
+        ))
+        (if (== col 3) (
+            (= pos33 GetStoneType(currentPlayer))
+        ))
+    ))
+)
+
+func IsEmpty(row col) (
+    (if (== row 1) (
+        (if (== col 1) (
+            (return (== pos11 " "))
+        ))
+        (if (== col 2) (
+            (return (== pos12 " "))
+        ))
+        (if (== col 3) (
+            (return (== pos13 " "))
+        ))
+    ))
+    (if (== row 2) (
+        (if (== col 1) (
+            (return (== pos21 " "))
+        ))
+        (if (== col 2) (
+            (return (== pos22 " "))
+        ))
+        (if (== col 3) (
+            (return (== pos23 " "))
+        ))
+    ))
+    (if (== row 3) (
+        (if (== col 1) (
+            (return (== pos31 " "))
+        ))
+        (if (== col 2) (
+            (return (== pos32 " "))
+        ))
+        (if (== col 3) (
+            (return (== pos33 " "))
+        ))
+    ))
+)
+
+func ReadInput(currentPlayer) (
+    (var row)
+    (var col)
+    (var empty)
+
+    (while (!empty) (
+        (Write ("Write your row: "))
+        (Read (row))
+        (while (|| (< row 1) (> row 3)) (
+            (Write ("Invalid number, type it again: "))
+            (Read (row))
+        ))
+
+        (Write ("Write your column: "))
+        (Read (col))
+        (while (|| (< col 1) (> col 3)) (
+            (Write ("Invalid number, type it again: "))
+            (Read (col))
+        ))
+
+        (= empty IsEmpty(row col))
+
+        (if (!empty) (
+            (Write ("Space is already occupied, please enter your numbers again!\n"))
+        ))
+    ))
+
+    (PlaceStone (currentPlayer row col))
+)
+
+func CheckGameOver() (
+    (if (&& (== pos11 pos12 pos13) (!= pos11 " ")) (
+        (return 1)
+    ))
+    (if (&& (== pos21 pos22 pos23) (!= pos21 " ")) (
+        (return 1)
+    ))
+    (if (&& (== pos31 pos32 pos33) (!= pos31 " ")) (
+        (return 1)
+    ))
+    (if (&& (== pos11 pos21 pos31) (!= pos11 " ")) (
+        (return 1)
+    ))
+    (if (&& (== pos12 pos22 pos32) (!= pos12 " ")) (
+        (return 1)
+    ))
+    (if (&& (== pos13 pos23 pos33) (!= pos13 " ")) (
+        (return 1)
+    ))
+    (if (&& (== pos11 pos22 pos33) (!= pos11 " ")) (
+        (return 1)
+    ))
+    (if (&& (== pos13 pos22 pos31) (!= pos13 " ")) (
+        (return 1)
+    ))
+    (return 0)
+)
+
+func TicTacToe() (
+    (var currentPlayer)
+    (var gameOver)
+
+    (Write ("Rows 1-3 \nColumns 1-3\n"))
+
+    (PrintBoard ())
+
+    (while (! gameOver) (
+        (Write ((+ "\n" (+ currentPlayer 1) ". player's turn\n")))
+
+        (ReadInput(currentPlayer))
+        (PrintBoard ())
+
+        (= gameOver CheckGameOver())
+        (if (gameOver) (
+            (Write ((+ "Player " (+ currentPlayer 1) " wins!\n")))
+        )
+        else (
+            (= currentPlayer (% (+ currentPlayer 1) 2))
+        ))
+    ))
+)
+
+TicTacToe()

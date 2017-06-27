@@ -31,6 +31,7 @@ struct Call : OperBase
 {
 	Identifier function;
 	bool isTail;
+	bool isSysCall;
 };
 
 struct Operator : OperBase
@@ -106,7 +107,7 @@ struct Toplevel
 {
 	std::vector<Global> globals;
 	Ptr<Scope> scope;
-	std::size_t frameSize;
+	std::size_t globalVars;
 };
 
 inline std::ostream &operator<<(std::ostream &out, Expression ex);

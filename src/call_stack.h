@@ -11,6 +11,7 @@ using Value = Union<std::string, int>;
 struct CallStack {
 	struct Frame {
 		std::vector<Value> values;
+		bool returned;
 
 		Frame(std::size_t size) : values(size) {}
 
@@ -61,6 +62,16 @@ struct CallStack {
 
 	void resizeTopFrame(std::size_t size) {
 		frames.top().resize(size);
+	}
+
+	bool isTopReturned() const
+	{
+		return frames.top().returned;
+	}
+
+	void setTopReturned(bool returned)
+	{
+		frames.top().returned = returned;
 	}
 };
 
@@ -133,6 +144,16 @@ struct Environment {
 	void resizeTopFrame(std::size_t size) {
 		callStack.resizeTopFrame(size);
 	}
+
+	bool isTopReturned() const
+	{
+		return callStack.isTopReturned();
+	}
+
+	void setTopReturned(bool returned)
+	{
+		callStack.setTopReturned(returned);
+	}
 };
 
 Value operator+(const Value &lhs, const Value &rhs) {
@@ -141,6 +162,12 @@ Value operator+(const Value &lhs, const Value &rhs) {
 	}
 	if (lhs.is<std::string>() && rhs.is<std::string>()) {
 		return lhs.get<std::string>() + rhs.get<std::string>();
+	}
+	if (lhs.is<std::string>() && rhs.is<int>()) {
+		return lhs.get<std::string>() + std::to_string(rhs.get<int>());
+	}
+	if (lhs.is<int>() && rhs.is<std::string>()) {
+		return std::to_string(lhs.get<int>()) + rhs.get<std::string>();
 	}
 	//fail();
 }

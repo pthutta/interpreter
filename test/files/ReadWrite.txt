@@ -1,0 +1,6 @@
+func ReadAndWrite() (
+    (var x)
+    (Read (x))
+    (Write ((+ x "\n")))
+)
+ReadAndWrite()

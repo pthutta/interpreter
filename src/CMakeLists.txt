@@ -11,3 +11,4 @@ target_sources(headers INTERFACE ${SOURCE_FILES})
 
 add_executable(Interpreter main.cpp)
 target_link_libraries(Interpreter headers)
+target_link_libraries(Interpreter ${CMAKE_DL_LIBS})

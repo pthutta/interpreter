@@ -24,6 +24,8 @@ struct Parser
 
 	Parser(const char *file) : lexer(file), token(Token::Eof, "", 0) {}
 
+	Parser(std::string file) : Parser(file.c_str()) {}
+
 	void shift()
 	{
 		token = lexer.next();
@@ -407,7 +409,7 @@ protected:
 
 	Ptr<Expression> expressionOperCheck()
 	{
-		if (lexer.isOperator(token.text)) {
+		if (lexer.isOperator(token.text) && token.category != Token::StringLit) {
 			fail("( before operator");
 		}
 		return expression();

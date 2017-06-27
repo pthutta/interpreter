@@ -65,6 +65,8 @@ struct Lexer
 		keywords = std::move(key);
 	}
 
+	Lexer(std::string file) : Lexer(file.c_str()) {}
+
 	Token next()
 	{
 		whitespace();
@@ -81,7 +83,7 @@ struct Lexer
 			return shift(Token::ParentClose);
 		}
 
-		if (std::isalpha(c)) {
+		if (std::isalpha(c) || c == '_') {
 			return identifier();
 		}
 		
@@ -137,7 +139,7 @@ protected:
 
 	Token identifier()
 	{
-		while (std::isalnum(c = in.get())) {
+		while (std::isalnum(c = in.get()) || c == '_') {
 			buffer += c;
 		}
 		in.unget();
@@ -153,6 +155,14 @@ protected:
 		while ((c = in.get()) != '"') {
 			if (c == EOF) {
 				return shift(Token::Error);
+			}
+			if (c == '\\') {
+				char next = in.get();
+				if (next == 'n') {
+					buffer += '\n';
+					continue;
+				}
+				in.unget();
 			}
 			buffer += c;
 		}

@@ -1,5 +1,7 @@
 #pragma once
 #include <memory>
+#include <dlfcn.h>
+#include <algorithm>
 #include "parser.h"
 #include "scope.h"
 
@@ -26,6 +28,8 @@ struct Analyzer
 
 	Analyzer(const char *file) : parser(file), varCounter(0), globalVars(0) {}
 
+	Analyzer(std::string file) : Analyzer(file.c_str()) {}
+
 	void fail(Token token, bool exists)
 	{
 		throw BadSymbol(token, exists);
@@ -43,7 +47,7 @@ struct Analyzer
 						 [&](Func &f) { func(f, currentScope); },
 						 [&](Call &c) { call(c, currentScope, false); });
 		}
-		toplevel.frameSize = globalVars;
+		toplevel.globalVars = globalVars;
 		return toplevel;
 	}
 
@@ -51,9 +55,19 @@ private:
 	void define(Identifier &name, Ptr<Scope> currentScope, bool global)
 	{
 		auto n = parser.stringTable.get(name);
+		if (isSysCall(name)) {
+			fail(name.token, true);
+		}
 		if (!currentScope->add(n, name, (global) ? globalVars : varCounter, global)) {
 			fail(name.token, true);
 		}
+	}
+
+	bool isSysCall(Identifier id)
+	{
+		auto name = id.token.text;
+		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+		return dlsym(NULL, name.c_str()) != NULL;
 	}
 
 	void func(Func &f, Ptr<Scope> currentScope)
@@ -175,7 +189,12 @@ private:
 
 	void call(Call &call, Ptr<Scope> currentScope, bool tailContext)
 	{
-		identifier(call.function, currentScope);
+		if (isSysCall(call.function)) {
+			call.isSysCall = true;
+		}
+		else {
+			identifier(call.function, currentScope);
+		}
 		call.isTail = tailContext;
 
 		for (auto operand : call.operands) {

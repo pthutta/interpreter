@@ -6,6 +6,8 @@
 #include <functional>
 #include <numeric>
 #include <stack>
+#include <string>
+#include <dlfcn.h>
 #include "analyzer.h"
 #include "ast.h"
 #include "call_stack.h"
@@ -24,12 +26,20 @@ static inline std::ostream &operator<<(std::ostream &out, RuntimeError re)
 }
 
 struct Evaluator {
+	using no_args_func_ptr = int (*)();
+	using one_args_func_ptr = int (*)(int);
+	using two_args_func_ptr = int (*)(int, int);
+	using three_args_func_ptr = int (*)(int, int, int);
+	using four_args_func_ptr = int (*)(int, int, int, int);
+
+
 	Analyzer analyzer;
 	Toplevel toplevel;
 	Environment environment;
-	bool returned;
 
 	Evaluator(const char *file) : analyzer(file) {}
+
+	Evaluator(std::string file) : Evaluator(file.c_str()) {}
 
 	void evalAndPrint()
 	{
@@ -42,7 +52,7 @@ struct Evaluator {
 	{
 		std::vector<Value> results;
 		toplevel = analyzer.toplevel();
-		environment.start(&analyzer.parser.stringTable, toplevel.frameSize);
+		environment.start(&analyzer.parser.stringTable, toplevel.globalVars);
 		for (auto &global : toplevel.globals) {
 			global.match([&](Call c) {
 				results.push_back(eval(*make_expr(c), toplevel.scope));
@@ -67,7 +77,7 @@ struct Evaluator {
 	{
 		while (convert(eval(*w.condition, currentScope))) {
 			eval(*w.body, w.body->scope);
-			if (returned) {
+			if (environment.isTopReturned()) {
 				break;
 			}
 		}
@@ -89,7 +99,7 @@ struct Evaluator {
 		for (i = from.get<int>(); comps[static_cast<int>(f.downto)]() ; functors[static_cast<int>(f.downto)]()) {
 			environment[symbol.offset] = i;
 			eval(*f.body, f.body->scope);
-			if (returned) {
+			if (environment.isTopReturned()) {
 				break;
 			}
 		}
@@ -124,7 +134,8 @@ struct Evaluator {
 					opers.pop();
 				} else {
 					auto o = getNextOperand(opers.top());
-					toEval = (o.is<Atom>()) ? Expression(ExprBase(eval(o.get<Atom>(), currentScope))) : o;
+					toEval = (needToEval(o, opers.top().first, getOperandCount(opers.top().first) - opers.top().second + 1))
+					         ? Expression(ExprBase(eval(o.get<Atom>(), currentScope))) : o;
 				}
 			}
 			else {
@@ -146,11 +157,15 @@ struct Evaluator {
 				else {
 					opers.push(std::make_pair(toEval, size));
 					auto o = getNextOperand(opers.top());
-					toEval = (o.is<Atom>() && !(toEval.is<Operator>() && toEval.get<Operator>().token.category == Token::Assign))
-					         ? Expression(ExprBase(eval(o.get<Atom>(), currentScope))) : o;
+					toEval = (needToEval(o, toEval, 1)) ? Expression(ExprBase(eval(o.get<Atom>(), currentScope))) : o;
 				}
 			}
 		}
+	}
+
+	bool needToEval(Expression &op, Expression &func, int opOrder) {
+		return (op.is<Atom>() && !(func.is<Call>() && func.get<Call>().function.token.text == "Read" && opOrder == 1) &&
+			!(func.is<Operator>() && func.get<Operator>().token.category == Token::Assign && opOrder == 1));
 	}
 
 	Value eval(Expression &ex, std::vector<Atom> &&operands, Ptr<Scope> currentScope) {
@@ -171,7 +186,6 @@ struct Evaluator {
 				fail(oper, " requires first operand to be variable identifier");
 			}
 			auto value = eval(operands[1], currentScope);
-			auto v = value.get<int>();
 			environment.var(operands[0].get<Identifier>(), currentScope) = value;
 			return value;
 		}
@@ -181,39 +195,17 @@ struct Evaluator {
 
 		std::vector<Value> values;
 		std::for_each(operands.begin(), operands.end(), [&](Atom &a) { values.push_back(eval(a, currentScope)); });
-		return operators(oper, values, currentScope);
+		return operators(oper, values);
 	}
 
 	Value eval(Call &call, std::vector<Atom> &operands, Ptr<Scope> currentScope)
 	{
-		auto func = getFunction(call.function);
-
-		if (func.parameters.size() != operands.size()) {
-			fail(call.function.token, ": the number of given arguments is different than number of required arguments");
-		}
-
-		if (call.isTail) {
-			environment.resizeTopFrame(func.frameSize);
+		if (call.isSysCall) {
+			return systemCall(call, operands, currentScope);
 		}
 		else {
-			environment.pushFrame(func.frameSize);
+			return functionCall(call, operands, currentScope);
 		}
-
-		for (int i = 0; i < operands.size(); i++) {
-			environment[i] = eval(operands[i], currentScope);
-		}
-
-		returned = false;
-		environment[environment.topFrameSize() - 1] = 0;
-
-		eval(*func.body, func.body->scope);
-
-		auto value = environment[environment.topFrameSize() - 1];
-
-		if (!call.isTail) {
-			environment.popFrame();
-		}
-		return value;
 	}
 
 	Value eval(Atom &a, Ptr<Scope> currentScope)
@@ -238,7 +230,7 @@ struct Evaluator {
 	{
 		auto value = eval(*r.returnValue, currentScope);
 		environment[environment.topFrameSize() - 1] = value;
-		returned = true;
+		environment.setTopReturned(true);
 	}
 
 	void eval(Block &b, Ptr<Scope> currentScope)
@@ -251,7 +243,7 @@ struct Evaluator {
 			                 [&](Return &r) { eval(r, currentScope); },
 			                 [&](Call &c) { eval(*make_expr(c), currentScope); },
 			                 [&](Operator &o) { eval(*make_expr(o), currentScope); });
-			if (returned) {
+			if (environment.isTopReturned()) {
 				break;
 			}
 		}
@@ -294,12 +286,18 @@ private:
 		}
 	}
 
-	Value operators(Token oper, std::vector<Value> &operands, Ptr<Scope> currentScope)
+	Value operators(Token oper, std::vector<Value> &operands)
 	{
 		switch (oper.category) {
 			case Token::Plus:
-				return std::accumulate(operands.begin(), operands.end(), Value(0),
-				                       [](Value &lhs, Value &rhs) { return lhs + rhs; });
+				if (operands.front().is<int>()) {
+					return std::accumulate(operands.begin(), operands.end(), Value(0),
+					                       [](Value &lhs, Value &rhs) { return lhs + rhs; });
+				}
+				else {
+					return std::accumulate(operands.begin(), operands.end(), Value(""),
+					                       [](Value &lhs, Value &rhs) { return lhs + rhs; });
+				}
 
 			case Token::Minus:
 				if (operands.size() == 1) {
@@ -333,22 +331,22 @@ private:
 				}
 
 			case Token::And:
-				return  std::find_if(operands.begin(), operands.end(), [](Value &v) {
-					return v != 0;
-				}) == operands.end();
+				return std::all_of(operands.begin(), operands.end(), [&](Value &v) {
+					return v != Value(0);
+				});
 
 			case Token::Or:
 				return std::find_if(operands.begin(), operands.end(), [](Value &v) {
-					return v != 0;
+					return v != Value(0);
 				}) != operands.end();
 
 			case Token::Not:
 				return !convert(operands.front());
 
 			case Token::Eq:
-				return find_if(operands.begin() + 1, operands.end(), [&](Value &v) {
-					return operands.front() != v;
-				}) == operands.end();
+				return std::all_of(operands.begin() + 1, operands.end(), [&](Value &v) {
+					return operands.front() == v;
+				});
 
 			case Token::NotEq:
 				std::sort(operands.begin(), operands.end());
@@ -409,5 +407,211 @@ private:
 			auto i = call.operands.size() - idx;
 			return *call.operands[i];
 		}
+	}
+
+	Value systemCall(Call &call, std::vector<Atom> &arguments, Ptr<Scope> currentScope)
+	{
+		auto name = call.function.token.text;
+		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+		std::vector<Value> values;
+		std::for_each(arguments.begin(), arguments.end(), [&](Atom &a) { values.push_back(eval(a, currentScope)); });
+
+		if (name == "write") {
+			return writeCall(call, values);
+		}
+		else if (name == "read") {
+			return readCall(call, arguments, currentScope);
+		}
+		else {
+			return genericSysCall(call, values);
+		}
+	}
+
+	Value functionCall(Call &call, std::vector<Atom> &operands, Ptr<Scope> currentScope)
+	{
+		auto func = getFunction(call.function);
+
+		if (func.parameters.size() != operands.size()) {
+			this->fail(call.function.token,
+			           ": the number of given arguments is different than number of required arguments");
+		}
+
+		if (call.isTail) {
+			environment.resizeTopFrame(func.frameSize);
+		} else {
+			environment.pushFrame(func.frameSize);
+		}
+
+		for (int i = 0; i < operands.size(); i++) {
+			environment[i] = eval(operands[i], currentScope);
+		}
+
+		environment.setTopReturned(false);
+		environment[environment.topFrameSize() - 1] = 0;
+
+		eval(*func.body, func.body->scope);
+
+		auto value = environment[environment.topFrameSize() - 1];
+
+		if (!call.isTail) {
+			environment.popFrame();
+		}
+		return value;
+	}
+
+	Value writeCall(Call &call, std::vector<Value> &arguments) {
+		if (arguments.size() != 1) {
+			fail(call, "requires one argument");
+		}
+
+		using write_func_ptr = int (*)(int, const void*, int);
+		write_func_ptr w = (write_func_ptr) dlsym(NULL, "write");
+
+		auto value = arguments[0];
+		std::string str;
+		if (value.is<std::string>()) {
+			str = value.get<std::string>();
+		}
+		else if (value.is<int>()) {
+			str = std::to_string(value.get<int>());
+		}
+
+		return w(1, str.c_str(), (int)str.size());
+	}
+
+	Value readCall(Call &call, std::vector<Atom> &arguments, Ptr<Scope> currentScope) {
+		if (arguments.size() != 1) {
+			fail(call, "requires one argument");
+		}
+		if (!arguments[0].is<Identifier>()) {
+			fail(call, " requires argument to be a variable identifier");
+		}
+
+		using read_func_ptr = int (*)(int, void *, int);
+		read_func_ptr r = (read_func_ptr) dlsym(NULL, "read");
+
+		std::string input;
+		int retValue = 0;
+		char buffer[1];
+
+		while (true) {
+			if (r (0, buffer, 1) > 0) {
+				if (buffer[0] == '\n') {
+					break;
+				}
+				input += buffer[0];
+				retValue++;
+			}
+			else {
+				break;
+			}
+		}
+
+		int num;
+		auto identifier = arguments[0].get<Identifier>();
+		if (convertStringToInt(input, num)) {
+			environment.var(identifier, currentScope) = num;
+		}
+		else {
+			environment.var(identifier, currentScope) = input;
+		}
+
+		return retValue;
+	}
+
+	template <int N, typename fake = void>
+	struct callSystemCall;
+
+	template <typename fake>
+	struct callSystemCall<0, fake> {
+		int operator()(std::string name, std::vector<int> values)
+		{
+			no_args_func_ptr call = (no_args_func_ptr) dlsym(NULL, name.c_str());
+			return call();
+		}
+	};
+
+	template <typename fake>
+	struct callSystemCall<1, fake> {
+		int operator()(std::string name, std::vector<int> values)
+		{
+			one_args_func_ptr call = (one_args_func_ptr) dlsym(NULL, name.c_str());
+			return call(values[0]);
+		}
+	};
+
+	template <typename fake>
+	struct callSystemCall<2, fake> {
+		int operator()(std::string name, std::vector<int> values)
+		{
+			two_args_func_ptr call = (two_args_func_ptr) dlsym(NULL, name.c_str());
+			return call(values[0], values[1]);
+		}
+	};
+
+	template <typename fake>
+	struct callSystemCall<3, fake> {
+		int operator()(std::string name, std::vector<int> values)
+		{
+			three_args_func_ptr call = (three_args_func_ptr) dlsym(NULL, name.c_str());
+			return call(values[0], values[1], values[2]);
+		}
+	};
+
+	template <typename fake>
+	struct callSystemCall<4, fake> {
+		int operator()(std::string name, std::vector<int> values)
+		{
+			four_args_func_ptr call = (four_args_func_ptr) dlsym(NULL, name.c_str());
+			return call(values[0], values[1], values[2], values[3]);
+		}
+	};
+
+	Value genericSysCall(Call &call, std::vector<Value> arguments) {
+		auto name = call.function.token.text;
+		std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+		std::vector<int> values;
+		for (int i = 0; i < arguments.size(); ++i) {
+			if (!arguments[i].is<int>()) {
+				fail(call, " requires " + std::to_string(i+1) + ". operand to be an integer");
+			}
+			values.push_back(std::move(arguments[i].get<int>()));
+		}
+
+		switch (values.size()) {
+			case 0:
+				return callSystemCall< 0 >()(name, values);
+			case 1:
+				return callSystemCall< 1 >()(name, values);
+			case 2:
+				return callSystemCall< 2 >()(name, values);
+			case 3:
+				return callSystemCall< 3 >()(name, values);
+			case 4:
+				return callSystemCall< 4 >()(name, values);
+			default:
+				fail(call, "has unsupported number of arguments");
+		}
+	}
+
+	bool convertStringToInt(std::string str, int &value) {
+		if (str.empty()) {
+			return false;
+		}
+		auto copy = str;
+		if (copy[0] == '-' || copy[0] == '+') {
+			copy = copy.substr(1);
+		}
+		if (hasOnlyDigits(copy)) {
+			value = std::stoi(str);
+			return true;
+		}
+		return false;
+	}
+
+	bool hasOnlyDigits(const std::string s){
+		return s.find_first_not_of( "0123456789" ) == std::string::npos;
 	}
 };

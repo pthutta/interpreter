@@ -1,0 +1,4 @@
+func HelloWorld() (
+    (Write ("Hello World!\n"))
+)
+HelloWorld()

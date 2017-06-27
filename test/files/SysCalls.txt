@@ -1,0 +1,19 @@
+func SysCalls() (
+    (var mainPid Getpid())
+
+    (Write ("Forking\n"))
+    (Fork ())
+
+    (Write ((+ "uid: " Getpid() "\n")))
+
+    (Write ("Sleeping...\n"))
+    (Sleep (2))
+    (Write ((+ Getpid() " woke up!\n")))
+
+    (if (!= mainPid Getpid()) (
+        (Write ((+ Getpid() ": I'm not the original process! I'm quitting. \n")))
+        (Exit (1))
+    ))
+    (Write ((+ Getpid() ": I'm the original process!\n")))
+)
+SysCalls()
